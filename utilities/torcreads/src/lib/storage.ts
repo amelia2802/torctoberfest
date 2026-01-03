@@ -1,5 +1,7 @@
-// Client-side storage utilities
-import { supabase } from "./supabase";
+// Client-side storage utilities using Google Sheets (via Apps Script)
+// Fallback to localStorage if VITE_GOOGLE_SCRIPT_URL is not set
+
+const SCRIPT_URL = import.meta.env.VITE_GOOGLE_SCRIPT_URL;
 
 export interface Book {
   id?: string;
@@ -17,7 +19,9 @@ export interface StudyGuide {
   id?: string;
   title: string;
   bookTitle: string;
-  content: string;
+  fileUrl?: string;
+  fileName?: string;
+  fileSize?: number;
   uploadedAt?: string;
 }
 
@@ -37,204 +41,192 @@ const STORAGE_KEYS = {
   CURRENT_USER: 'bookclub_user',
 };
 
+// Helper for Google Sheets API
+async function callSheetsAPI(action: string, data?: any) {
+  if (!SCRIPT_URL) {
+    console.warn('⚠️ Google Script URL not set. Using local fallback.');
+    return null;
+  }
+
+  try {
+    if (data) {
+      // POST request
+      // We don't set Content-Type to avoid preflight (OPTIONS) request which Apps Script doesn't handle.
+      // We pass data as a blob or string.
+      const response = await fetch(SCRIPT_URL, {
+        method: 'POST',
+        redirect: 'follow',
+        body: JSON.stringify({ action, ...data })
+      });
+      return { status: 'success' };
+    } else {
+      // GET request
+      const response = await fetch(`${SCRIPT_URL}?action=${action}`, {
+        redirect: 'follow'
+      });
+
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+      const result = await response.json();
+      if (result && result.status === 'error') {
+        throw new Error(result.message);
+      }
+      return result;
+    }
+  } catch (error) {
+    console.error(`❌ Sheets API Error (${action}):`, error);
+    return null;
+  }
+}
+
+// Local Fallback Helpers
+function getLocal(key: string) {
+  return JSON.parse(localStorage.getItem(key) || '[]');
+}
+function setLocal(key: string, data: any) {
+  localStorage.setItem(key, JSON.stringify(data));
+}
+
 // Books
 export const getBooks = async (): Promise<Book[]> => {
-  try {
-    const { data, error } = await supabase
-      .from('books')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Error fetching books:', error);
-      return [];
-    }
-
-    // Convert snake_case (database) to camelCase (JavaScript)
-    const books = (data || []).map(book => ({
-      id: book.id,
-      title: book.title,
-      author: book.author,
-      coverUrl: book.cover_url,
-      dateRead: book.date_read,
-      rating: book.rating,
-      notes: book.notes,
-      addedBy: book.added_by,
-      createdAt: book.created_at,
+  const remoteData = await callSheetsAPI('getBooks');
+  if (remoteData) {
+    return remoteData.map((b: any) => ({
+      id: b.id,
+      title: b.title,
+      author: b.author,
+      coverUrl: b.cover_url,
+      dateRead: b.date_read,
+      rating: Number(b.rating),
+      notes: b.notes,
+      addedBy: b.added_by,
+      createdAt: b.created_at,
     }));
-
-    return books;
-  } catch (error) {
-    console.error('Unexpected error:', error);
-    return [];
   }
+  return getLocal(STORAGE_KEYS.BOOKS);
 };
 
 export const saveBook = async (book: Book): Promise<void> => {
-  try {
-    // Convert camelCase (JavaScript) to snake_case (database)
-    const bookData = {
-      title: book.title,
-      author: book.author,
-      cover_url: book.coverUrl || null,
-      date_read: book.dateRead || null,
-      rating: book.rating || null,
-      notes: book.notes || null,
-      added_by: book.addedBy,
-    };
+  const bookData = {
+    title: book.title,
+    author: book.author,
+    cover_url: book.coverUrl || '',
+    date_read: book.dateRead || '',
+    rating: book.rating || 0,
+    notes: book.notes || '',
+    added_by: book.addedBy,
+  };
 
+  const remoteResult = await callSheetsAPI('saveBook', { row: bookData });
 
-    const { data, error } = await supabase
-      .from('books')
-      .insert([bookData])
-      .select();
-
-    if (error) {
-      console.error('❌ Supabase error:', error);
-      throw new Error(`Failed to save book: ${error.message}`);
-    }
-
-    console.log('✅ Book saved successfully:', data);
-  } catch (error) {
-    console.error('❌ Unexpected error:', error);
-    throw error;
-  }
+  // Sync to local for offline/immediate use
+  const books = getLocal(STORAGE_KEYS.BOOKS);
+  books.unshift({ ...book, id: Math.random().toString(36).substr(2, 9), createdAt: new Date().toISOString() });
+  setLocal(STORAGE_KEYS.BOOKS, books);
 };
 
 export const deleteBook = async (id: string): Promise<void> => {
-  try {
-    const { error } = await supabase
-      .from('books')
-      .delete()
-      .eq('id', id);
+  await callSheetsAPI('deleteBook', { id });
+  const books = getLocal(STORAGE_KEYS.BOOKS).filter((b: any) => b.id !== id);
+  setLocal(STORAGE_KEYS.BOOKS, books);
+};
 
-    if (error) {
-      console.error('Error deleting book:', error);
-      throw new Error(`Failed to delete book: ${error.message}`);
-    }
-  } catch (error) {
-    console.error('Unexpected error:', error);
-    throw error;
-  }
+export const deleteStudyGuide = async (id: string): Promise<void> => {
+  await callSheetsAPI('deleteGuide', { id });
+  const guides = getLocal(STORAGE_KEYS.GUIDES).filter((g: any) => g.id !== id);
+  setLocal(STORAGE_KEYS.GUIDES, guides);
+};
+
+export const deleteStudyGuideFile = async (fileUrl: string): Promise<void> => {
+  // Since we don't have a real file system or Supabase storage anymore,
+  // we'll just ignore this or implement it if the ID can be extracted.
+  console.warn('deleteStudyGuideFile: File deletion not implemented for Sheets.');
 };
 
 // Study Guides
-export const getStudyGuides = (): StudyGuide[] => {
-  const data = localStorage.getItem(STORAGE_KEYS.GUIDES);
-  return data ? JSON.parse(data) : [];
+export const getStudyGuides = async (): Promise<StudyGuide[]> => {
+  const remoteData = await callSheetsAPI('getGuides');
+  if (remoteData) {
+    return remoteData.map((g: any) => ({
+      id: g.id,
+      title: g.title,
+      bookTitle: g.book_title,
+      fileUrl: g.file_url,
+      fileName: g.file_name,
+      fileSize: Number(g.file_size),
+      uploadedAt: g.uploaded_at,
+    }));
+  }
+  return getLocal(STORAGE_KEYS.GUIDES);
 };
 
-export const saveStudyGuide = (guide: StudyGuide): void => {
-  const guides = getStudyGuides();
-  guides.push(guide);
-  localStorage.setItem(STORAGE_KEYS.GUIDES, JSON.stringify(guides));
+export const uploadStudyGuideFile = async (file: File): Promise<string> => {
+  // Mock file upload as Sheets doesn't store files directly
+  console.log('📤 Note: File storage not implemented for Sheets. Using mock URL.');
+  return URL.createObjectURL(file); // Temporary blob URL
 };
 
-export const deleteStudyGuide = (id: string): void => {
-  const guides = getStudyGuides().filter(g => g.id !== id);
-  localStorage.setItem(STORAGE_KEYS.GUIDES, JSON.stringify(guides));
+export const saveStudyGuide = async (guide: StudyGuide): Promise<void> => {
+  const guideData = {
+    title: guide.title,
+    book_title: guide.bookTitle,
+    file_url: guide.fileUrl || '',
+    file_name: guide.fileName || '',
+    file_size: guide.fileSize || 0,
+  };
+
+  await callSheetsAPI('saveGuide', { row: guideData });
+
+  const guides = getLocal(STORAGE_KEYS.GUIDES);
+  guides.unshift({ ...guide, id: Math.random().toString(36).substr(2, 9), uploadedAt: new Date().toISOString() });
+  setLocal(STORAGE_KEYS.GUIDES, guides);
 };
 
 // Voting
 export const getVotingOptions = async (): Promise<VotingOption[]> => {
-  try{
-    const {data, error} = await supabase.from('voting_options').select('*');
-
-    if(error){
-      console.error('Error fetching voting options:', error);
-      return [];
-    }
-    const voting_options = (data || []).map(option => ({
-        id: option.id,
-        bookTitle: option.book_title,
-        author: option.author,
-        suggestedBy: option.suggested_by,
-        votes: option.votes,
-        createdAt: option.created_at
+  const remoteData = await callSheetsAPI('getVotes');
+  if (remoteData) {
+    return remoteData.map((o: any) => ({
+      id: o.id,
+      bookTitle: o.book_title,
+      author: o.author,
+      suggestedBy: o.suggested_by,
+      votes: Number(o.votes),
+      createdAt: o.created_at,
     }));
-
-    return voting_options;
   }
-  catch(error){
-    console.error('Unexpected error:', error);
-    return [];
-  }
+  return getLocal(STORAGE_KEYS.VOTES);
 };
 
 export const saveVotingOption = async (option: VotingOption): Promise<void> => {
-  try{
-    const optionData = {
-      book_title: option.bookTitle,
-      author: option.author,
-      suggested_by: option.suggestedBy,
-      votes: option.votes || 0,
-    };
+  const optionData = {
+    book_title: option.bookTitle,
+    author: option.author,
+    suggested_by: option.suggestedBy,
+    votes: option.votes || 0,
+  };
 
-    const {data, error} = await supabase.from('voting_options').insert([optionData]).select();
+  await callSheetsAPI('saveVote', { row: optionData });
 
-    if(error){
-      console.error('❌ Supabase error:', error);
-      throw new Error(`Failed to save voting option: ${error.message}`);
-    }
-  }
-  catch(error){
-    console.error('❌ Unexpected error:', error);
-    throw error;
-  }
+  const votes = getLocal(STORAGE_KEYS.VOTES);
+  votes.push({ ...option, id: Math.random().toString(36).substr(2, 9), createdAt: new Date().toISOString() });
+  setLocal(STORAGE_KEYS.VOTES, votes);
 };
 
 export const voteForOption = async (id: string): Promise<void> => {
-  try {
-    // First, get the current vote count
-    const { data: currentData, error: fetchError } = await supabase
-      .from('voting_options')
-      .select('votes')
-      .eq('id', id)
-      .single();
+  await callSheetsAPI('vote', { id });
 
-    if (fetchError) {
-      console.error('Error fetching current votes:', fetchError);
-      throw new Error(`Failed to fetch votes: ${fetchError.message}`);
-    }
-
-    // Increment the vote count
-    const newVotes = (currentData?.votes || 0) + 1;
-
-    // Update with new count
-    const { error: updateError } = await supabase
-      .from('voting_options')
-      .update({ votes: newVotes })
-      .eq('id', id);
-
-    if (updateError) {
-      console.error('Error updating votes:', updateError);
-      throw new Error(`Failed to update votes: ${updateError.message}`);
-    }
-
-    console.log('✅ Vote counted! New total:', newVotes);
-  } catch (error) {
-    console.error('❌ Unexpected error:', error);
-    throw error;
+  const votes = getLocal(STORAGE_KEYS.VOTES);
+  const index = votes.findIndex((v: any) => v.id === id);
+  if (index !== -1) {
+    votes[index].votes = (votes[index].votes || 0) + 1;
+    setLocal(STORAGE_KEYS.VOTES, votes);
   }
 };
 
 export const clearVotingOptions = async (): Promise<void> => {
-  try {
-    const { error } = await supabase
-      .from('voting_options')
-      .delete()
-      .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all (using a trick: "not equal to impossible ID")
-
-    if (error) {
-      console.error('Error clearing voting options:', error);
-      throw new Error(`Failed to clear voting options: ${error.message}`);
-    }
-
-    console.log('✅ All voting options cleared');
-  } catch (error) {
-    console.error('❌ Unexpected error:', error);
-    throw error;
-  }
+  await callSheetsAPI('clearVotes');
+  setLocal(STORAGE_KEYS.VOTES, []);
 };
 
 // User
