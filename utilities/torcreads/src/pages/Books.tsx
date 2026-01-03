@@ -6,8 +6,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Trash2, Star, BookOpen } from "lucide-react";
+import { Plus, Trash2, Star, BookOpen, CheckCircle2 } from "lucide-react";
 import { getBooks, saveBook, deleteBook, getCurrentUser, type Book } from "@/lib/storage";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 
 const Books = () => {
@@ -21,6 +22,8 @@ const Books = () => {
     dateRead: "",
     rating: 0,
     notes: "",
+    addedBy: getCurrentUser(),
+    isMember: false,
   });
   const { toast } = useToast();
 
@@ -35,10 +38,10 @@ const Books = () => {
       setBooks(data);
     } catch (error) {
       console.error('Error loading books:', error);
-      toast({ 
-        title: "Error loading books", 
+      toast({
+        title: "Error loading books",
         description: "Please try refreshing the page",
-        variant: "destructive" 
+        variant: "destructive"
       });
     } finally {
       setLoading(false);
@@ -47,25 +50,34 @@ const Books = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     try {
       const newBook: Book = {
         ...formData,
         addedBy: getCurrentUser(),
       };
-      
+
       await saveBook(newBook);
       await loadBooks();
-      
+
       setOpen(false);
-      setFormData({ title: "", author: "", coverUrl: "", dateRead: "", rating: 0, notes: "" });
+      setFormData({
+        title: "",
+        author: "",
+        coverUrl: "",
+        dateRead: "",
+        rating: 0,
+        notes: "",
+        addedBy: getCurrentUser(),
+        isMember: false
+      });
       toast({ title: "Book added successfully!" });
     } catch (error) {
       console.error('Error saving book:', error);
-      toast({ 
-        title: "Error adding book", 
+      toast({
+        title: "Error adding book",
         description: "Please try again",
-        variant: "destructive" 
+        variant: "destructive"
       });
     }
   };
@@ -77,7 +89,7 @@ const Books = () => {
       toast({ title: "Book removed" });
     } catch (error) {
       console.error('Error deleting book:', error);
-      toast({ 
+      toast({
         title: "Error deleting book",
         description: "Please try again",
         variant: "destructive"
@@ -85,7 +97,7 @@ const Books = () => {
     }
   };
 
-  if(loading){
+  if (loading) {
     return (
       <div className="min-h-screen bg-background">
         <Navigation />
@@ -138,6 +150,28 @@ const Books = () => {
                       onChange={(e) => setFormData({ ...formData, author: e.target.value })}
                       required
                     />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="addedBy">Your Name</Label>
+                    <Input
+                      id="addedBy"
+                      value={formData.addedBy}
+                      onChange={(e) => setFormData({ ...formData, addedBy: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="flex items-center space-x-2 py-2">
+                    <Checkbox
+                      id="isMember"
+                      checked={formData.isMember}
+                      onCheckedChange={(checked) => setFormData({ ...formData, isMember: checked as boolean })}
+                    />
+                    <Label
+                      htmlFor="isMember"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      I am a Torc Book Club Member
+                    </Label>
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="coverUrl">Cover URL (optional)</Label>
@@ -216,7 +250,12 @@ const Books = () => {
                 )}
               </CardContent>
               <CardFooter className="justify-between">
-                <p className="text-xs text-muted-foreground">by {book.addedBy}</p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-xs text-muted-foreground">by {book.addedBy}</p>
+                  {book.isMember && (
+                    <CheckCircle2 className="w-3.5 h-3.5 text-primary fill-primary/10" />
+                  )}
+                </div>
                 <Button
                   variant="ghost"
                   size="sm"

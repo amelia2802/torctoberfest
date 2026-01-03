@@ -5,8 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, ThumbsUp, Trophy } from "lucide-react";
+import { Plus, ThumbsUp, Trophy, CheckCircle2 } from "lucide-react";
 import { getVotingOptions, saveVotingOption, voteForOption, clearVotingOptions, getCurrentUser, type VotingOption } from "@/lib/storage";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 
 const Vote = () => {
@@ -16,6 +17,8 @@ const Vote = () => {
   const [formData, setFormData] = useState({
     bookTitle: "",
     author: "",
+    suggestedBy: getCurrentUser(),
+    isMember: false,
   });
   const { toast } = useToast();
 
@@ -42,19 +45,24 @@ const Vote = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     try {
       const newOption: VotingOption = {
         ...formData,
         suggestedBy: getCurrentUser(),
         votes: 0,
       };
-      
+
       await saveVotingOption(newOption);
       await loadOptions();
-      
+
       setOpen(false);
-      setFormData({ bookTitle: "", author: "" });
+      setFormData({
+        bookTitle: "",
+        author: "",
+        suggestedBy: getCurrentUser(),
+        isMember: false
+      });
       toast({ title: "Book suggestion added!" });
     } catch (error) {
       console.error('Error saving suggestion:', error);
@@ -159,6 +167,28 @@ const Vote = () => {
                         required
                       />
                     </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="suggestedBy">Your Name</Label>
+                      <Input
+                        id="suggestedBy"
+                        value={formData.suggestedBy}
+                        onChange={(e) => setFormData({ ...formData, suggestedBy: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div className="flex items-center space-x-2 py-2">
+                      <Checkbox
+                        id="isMember"
+                        checked={formData.isMember}
+                        onCheckedChange={(checked) => setFormData({ ...formData, isMember: checked as boolean })}
+                      />
+                      <Label
+                        htmlFor="isMember"
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      >
+                        I am a Torc Book Club Member
+                      </Label>
+                    </div>
                   </div>
                   <DialogFooter>
                     <Button type="submit">Submit Suggestion</Button>
@@ -185,9 +215,12 @@ const Vote = () => {
             <CardContent>
               <h3 className="text-2xl font-light mb-1">{winner.bookTitle}</h3>
               <p className="text-muted-foreground mb-2">by {winner.author}</p>
-              <p className="text-sm text-muted-foreground">
-                {winner.votes} {winner.votes === 1 ? 'vote' : 'votes'} • Suggested by {winner.suggestedBy}
-              </p>
+              <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <span>{winner.votes} {winner.votes === 1 ? 'vote' : 'votes'} • Suggested by {winner.suggestedBy}</span>
+                {winner.isMember && (
+                  <CheckCircle2 className="w-3.5 h-3.5 text-primary fill-primary/10" />
+                )}
+              </div>
             </CardContent>
           </Card>
         )}
@@ -212,9 +245,14 @@ const Vote = () => {
                     Vote
                   </Button>
                 </div>
-                <p className="text-xs text-muted-foreground mt-4">
-                  Suggested by {option.suggestedBy}
-                </p>
+                <div className="flex items-center gap-1.5 mt-4">
+                  <p className="text-xs text-muted-foreground">
+                    Suggested by {option.suggestedBy}
+                  </p>
+                  {option.isMember && (
+                    <CheckCircle2 className="w-3.5 h-3.5 text-primary fill-primary/10" />
+                  )}
+                </div>
               </CardContent>
             </Card>
           ))}

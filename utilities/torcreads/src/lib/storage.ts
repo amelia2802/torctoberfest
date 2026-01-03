@@ -12,6 +12,7 @@ export interface Book {
   rating?: number;
   notes?: string;
   addedBy: string;
+  isMember: boolean;
   createdAt?: string;
 }
 
@@ -30,6 +31,7 @@ export interface VotingOption {
   bookTitle: string;
   author: string;
   suggestedBy: string;
+  isMember: boolean;
   votes: number;
   createdAt?: string;
 }
@@ -100,6 +102,7 @@ export const getBooks = async (): Promise<Book[]> => {
       rating: Number(b.rating),
       notes: b.notes,
       addedBy: b.added_by,
+      isMember: b.is_member === 'TRUE' || b.is_member === true,
       createdAt: b.created_at,
     }));
   }
@@ -115,6 +118,7 @@ export const saveBook = async (book: Book): Promise<void> => {
     rating: book.rating || 0,
     notes: book.notes || '',
     added_by: book.addedBy,
+    is_member: book.isMember,
   };
 
   const remoteResult = await callSheetsAPI('saveBook', { row: bookData });
@@ -191,6 +195,7 @@ export const getVotingOptions = async (): Promise<VotingOption[]> => {
       bookTitle: o.book_title,
       author: o.author,
       suggestedBy: o.suggested_by,
+      isMember: o.is_member === 'TRUE' || o.is_member === true,
       votes: Number(o.votes),
       createdAt: o.created_at,
     }));
@@ -203,6 +208,7 @@ export const saveVotingOption = async (option: VotingOption): Promise<void> => {
     book_title: option.bookTitle,
     author: option.author,
     suggested_by: option.suggestedBy,
+    is_member: option.isMember,
     votes: option.votes || 0,
   };
 
@@ -225,7 +231,7 @@ export const voteForOption = async (id: string): Promise<void> => {
 };
 
 export const clearVotingOptions = async (): Promise<void> => {
-  await callSheetsAPI('clearVotes');
+  await callSheetsAPI('clearVotes', {}); // Force POST request
   setLocal(STORAGE_KEYS.VOTES, []);
 };
 
