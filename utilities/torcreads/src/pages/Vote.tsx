@@ -5,13 +5,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, ThumbsUp, Trophy, CheckCircle2 } from "lucide-react";
-import { getVotingOptions, saveVotingOption, voteForOption, clearVotingOptions, getCurrentUser, type VotingOption } from "@/lib/storage";
+import { Plus, ThumbsUp, Trophy, CheckCircle2, Swords, History, Theater, Heart, Rocket, Sparkles, Ghost, Skull, RefreshCcw } from "lucide-react";
+import { getVotingOptions, saveVotingOption, voteForOption, clearVotingOptions, getCurrentUser, getGenreVotes, voteForGenre, resetGenreVotes, type VotingOption, type GenreVote } from "@/lib/storage";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 
 const Vote = () => {
   const [options, setOptions] = useState<VotingOption[]>([]);
+  const [genreVotes, setGenreVotes] = useState<GenreVote[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -29,10 +30,14 @@ const Vote = () => {
   const loadOptions = async () => {
     setLoading(true);
     try {
-      const data = await getVotingOptions();
-      setOptions(data);
+      const [bookData, genreData] = await Promise.all([
+        getVotingOptions(),
+        getGenreVotes()
+      ]);
+      setOptions(bookData);
+      setGenreVotes(genreData);
     } catch (error) {
-      console.error('Error loading voting options:', error);
+      console.error('Error loading data:', error);
       toast({
         title: "Error loading options",
         description: "Please try refreshing the page",
@@ -90,21 +95,69 @@ const Vote = () => {
   };
 
   const handleClearVotes = async () => {
-    if (!window.confirm('Are you sure you want to reset all votes? This cannot be undone.')) {
+    if (!window.confirm('Are you sure you want to reset all book votes? This will remove all suggested books.')) {
       return;
     }
 
     try {
       await clearVotingOptions();
       await loadOptions();
-      toast({ title: "Voting reset for new month" });
+      toast({ title: "Book voting reset for new month" });
     } catch (error) {
       console.error('Error clearing votes:', error);
       toast({
-        title: "Error resetting votes",
+        title: "Error resetting book votes",
         description: "Please try again",
         variant: "destructive"
       });
+    }
+  };
+
+  const handleGenreVote = async (genreName: string) => {
+    try {
+      await voteForGenre(genreName);
+      const updatedGenreVotes = await getGenreVotes();
+      setGenreVotes(updatedGenreVotes);
+      toast({ title: `Vote added for ${genreName}!` });
+    } catch (error) {
+      console.error('Error voting for genre:', error);
+      toast({
+        title: "Error recording vote",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleResetGenreVotes = async () => {
+    if (!window.confirm('Are you sure you want to reset all genre votes?')) {
+      return;
+    }
+
+    try {
+      await resetGenreVotes();
+      const updatedGenreVotes = await getGenreVotes();
+      setGenreVotes(updatedGenreVotes);
+      toast({ title: "Genre votes reset!" });
+    } catch (error) {
+      console.error('Error resetting genre votes:', error);
+      toast({
+        title: "Error resetting genre votes",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const getGenreIcon = (name: string) => {
+    switch (name) {
+      case "Action/Adventure": return <Swords className="w-5 h-5" />;
+      case "Historical Fiction": return <History className="w-5 h-5" />;
+      case "Drama / Literary Fiction": return <Theater className="w-5 h-5" />;
+      case "Romance": return <Heart className="w-5 h-5 text-rose-500" />;
+      case "Sci-Fi": return <Rocket className="w-5 h-5 text-blue-400" />;
+      case "Fantasy": return <Sparkles className="w-5 h-5 text-purple-400" />;
+      case "Mystery / Thriller": return <Ghost className="w-5 h-5 text-gray-400" />;
+      case "Horror": return <Skull className="w-5 h-5 text-red-500" />;
+      default: return <Plus className="w-5 h-5" />;
     }
   };
 
@@ -124,6 +177,9 @@ const Vote = () => {
 
   const sortedOptions = [...options].sort((a, b) => b.votes - a.votes);
   const winner = sortedOptions[0];
+
+  const sortedGenres = [...genreVotes].sort((a, b) => b.votes - a.votes);
+  const leadingGenre = sortedGenres[0]?.votes > 0 ? sortedGenres[0] : null;
 
   return (
     <div className="min-h-screen bg-background">
@@ -198,10 +254,76 @@ const Vote = () => {
             </Dialog>
             {options.length > 0 && (
               <Button variant="outline" onClick={handleClearVotes}>
-                Reset Votes
+                Reset Books
               </Button>
             )}
+            <Button variant="outline" onClick={handleResetGenreVotes} className="gap-2">
+              <RefreshCcw className="w-4 h-4" />
+              Reset Genres
+            </Button>
           </div>
+        </div>
+
+        <section className="mb-12">
+          <div className="flex items-center gap-2 mb-6">
+            <Sparkles className="w-6 h-6 text-primary" />
+            <h2 className="text-2xl font-light">Next Month's Genre</h2>
+          </div>
+
+          {leadingGenre && (
+            <Card className="mb-8 border-primary bg-primary/5">
+              <CardHeader className="pb-2">
+                <div className="flex items-center gap-2 text-primary">
+                  <Trophy className="w-5 h-5" />
+                  <span className="text-sm font-medium uppercase tracking-wider">Leading Genre</span>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-background rounded-full border-2 border-primary/20 shadow-sm">
+                    {getGenreIcon(leadingGenre.name)}
+                  </div>
+                  <div>
+                    <h3 className="text-3xl font-light">{leadingGenre.name}</h3>
+                    <p className="text-muted-foreground">
+                      {leadingGenre.votes} {leadingGenre.votes === 1 ? 'vote' : 'votes'}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {genreVotes.map((genre) => (
+              <Card key={genre.id} className="hover:border-primary/50 transition-colors">
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-muted rounded-lg">
+                        {getGenreIcon(genre.name)}
+                      </div>
+                      <span className="font-medium">{genre.name}</span>
+                    </div>
+                    <span className="text-xl font-light text-primary">{genre.votes}</span>
+                  </div>
+                  <Button
+                    variant="secondary"
+                    className="w-full gap-2"
+                    onClick={() => handleGenreVote(genre.name)}
+                  >
+                    <ThumbsUp className="w-4 h-4" />
+                    Vote
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </section>
+
+        <div className="flex items-center gap-2 mb-6">
+          <Trophy className="w-6 h-6 text-primary" />
+          <h2 className="text-2xl font-light">Book Nominations</h2>
         </div>
 
         {winner && (

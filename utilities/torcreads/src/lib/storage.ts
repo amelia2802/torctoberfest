@@ -36,10 +36,18 @@ export interface VotingOption {
   createdAt?: string;
 }
 
+export interface GenreVote {
+  id: string; // The genre name will be the ID
+  name: string;
+  votes: number;
+  icon?: string;
+}
+
 const STORAGE_KEYS = {
   BOOKS: 'bookclub_books',
   GUIDES: 'bookclub_guides',
   VOTES: 'bookclub_votes',
+  GENRE_VOTES: 'bookclub_genre_votes',
   CURRENT_USER: 'bookclub_user',
 };
 
@@ -233,6 +241,60 @@ export const voteForOption = async (id: string): Promise<void> => {
 export const clearVotingOptions = async (): Promise<void> => {
   await callSheetsAPI('clearVotes', {}); // Force POST request
   setLocal(STORAGE_KEYS.VOTES, []);
+};
+
+// Genre Voting
+const DEFAULT_GENRES = [
+  "Action/Adventure",
+  "Historical Fiction",
+  "Drama / Literary Fiction",
+  "Romance",
+  "Sci-Fi",
+  "Fantasy",
+  "Mystery / Thriller",
+  "Horror"
+];
+
+export const getGenreVotes = async (): Promise<GenreVote[]> => {
+  const remoteData = await callSheetsAPI('getGenreVotes');
+  const localVotes = getLocal(STORAGE_KEYS.GENRE_VOTES);
+
+  // Create a map for quick lookup
+  const votesMap = new Map<string, number>();
+
+  // Use remote data if available, otherwise fallback to local
+  const sourceData = (remoteData && Array.isArray(remoteData)) ? remoteData : localVotes;
+
+  sourceData.forEach((g: any) => {
+    votesMap.set(g.name || g.id, Number(g.votes || 0));
+  });
+
+  // Ensure all default genres are present
+  return DEFAULT_GENRES.map(name => ({
+    id: name,
+    name,
+    votes: votesMap.get(name) || 0
+  }));
+};
+
+export const voteForGenre = async (genreName: string): Promise<void> => {
+  await callSheetsAPI('voteGenre', { name: genreName });
+
+  const votes = await getGenreVotes();
+  const index = votes.findIndex(v => v.name === genreName);
+  if (index !== -1) {
+    votes[index].votes += 1;
+    setLocal(STORAGE_KEYS.GENRE_VOTES, votes);
+  } else {
+    votes.push({ id: genreName, name: genreName, votes: 1 });
+    setLocal(STORAGE_KEYS.GENRE_VOTES, votes);
+  }
+};
+
+export const resetGenreVotes = async (): Promise<void> => {
+  await callSheetsAPI('resetGenreVotes', {});
+  const genres = DEFAULT_GENRES.map(name => ({ id: name, name, votes: 0 }));
+  setLocal(STORAGE_KEYS.GENRE_VOTES, genres);
 };
 
 // User

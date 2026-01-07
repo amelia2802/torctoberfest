@@ -26,6 +26,10 @@ To use Google Sheets as your database, follow these steps:
 | id | book_title | author | suggested_by | is_member | votes | created_at |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 
+### `genre_votes` tab headers:
+| id | name | votes |
+| :--- | :--- | :--- |
+
 ## 2. Deploy Google Apps Script
 1. Open your Google Sheet.
 2. Go to **Extensions** > **Apps Script**.
@@ -45,6 +49,7 @@ function doGet(e) {
     if (action === 'getBooks') return getSheetData(ss, 'books');
     if (action === 'getGuides') return getSheetData(ss, 'study_guides');
     if (action === 'getVotes') return getSheetData(ss, 'voting_options');
+    if (action === 'getGenreVotes') return getSheetData(ss, 'genre_votes');
     
     return createJsonResponse({ status: "error", message: "Invalid Action: " + action });
   } catch (err) {
@@ -65,6 +70,8 @@ function doPost(e) {
     if (action === 'deleteBook') return deleteRow(ss, 'books', data.id);
     if (action === 'deleteGuide') return deleteRow(ss, 'study_guides', data.id);
     if (action === 'clearVotes') return clearAllExceptHeader(ss, 'voting_options');
+    if (action === 'voteGenre') return voteGenre(ss, data.name);
+    if (action === 'resetGenreVotes') return resetGenreVotes(ss);
     
     return createJsonResponse({ status: "error", message: "Invalid Action: " + action });
   } catch (err) {
@@ -107,14 +114,62 @@ function incrementVote(ss, sheetName, id) {
   if (!sheet) return createJsonResponse({ status: "error", message: "Sheet not found: " + sheetName });
   
   var data = sheet.getDataRange().getValues();
+  var headers = data[0];
+  var voteColIndex = headers.indexOf('votes');
+  if (voteColIndex === -1) return createJsonResponse({ status: "error", message: "Votes column not found" });
+
   for (var i = 1; i < data.length; i++) {
     if (data[i][0] == id) {
-      var currentVotes = parseInt(data[i][4]) || 0;
-      sheet.getRange(i + 1, 5).setValue(currentVotes + 1);
+      var currentVotes = parseInt(data[i][voteColIndex]) || 0;
+      sheet.getRange(i + 1, voteColIndex + 1).setValue(currentVotes + 1);
       return createJsonResponse({ status: "success" });
     }
   }
   return createJsonResponse({ status: "error", message: "ID not found" });
+}
+
+function voteGenre(ss, genreName) {
+  var sheet = ss.getSheetByName('genre_votes');
+  if (!sheet) return createJsonResponse({ status: "error", message: "Sheet 'genre_votes' not found" });
+  
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0];
+  var voteColIndex = headers.indexOf('votes');
+  var nameColIndex = Math.max(headers.indexOf('name'), 0);
+  
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][nameColIndex] == genreName) {
+      var currentVotes = parseInt(data[i][voteColIndex]) || 0;
+      sheet.getRange(i + 1, voteColIndex + 1).setValue(currentVotes + 1);
+      return createJsonResponse({ status: "success" });
+    }
+  }
+  
+  // Not found, append new
+  var newRow = headers.map(function(h) {
+    if (h === 'id' || h === 'name') return genreName;
+    if (h === 'votes') return 1;
+    return "";
+  });
+  sheet.appendRow(newRow);
+  return createJsonResponse({ status: "success" });
+}
+
+function resetGenreVotes(ss) {
+  var sheet = ss.getSheetByName('genre_votes');
+  if (!sheet) return createJsonResponse({ status: "error", message: "Sheet 'genre_votes' not found" });
+  
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0];
+  var voteColIndex = headers.indexOf('votes');
+  if (voteColIndex === -1) return createJsonResponse({ status: "error", message: "Votes column not found" });
+
+  if (data.length > 1) {
+    for (var i = 1; i < data.length; i++) {
+      sheet.getRange(i + 1, voteColIndex + 1).setValue(0);
+    }
+  }
+  return createJsonResponse({ status: "success" });
 }
 
 function deleteRow(ss, sheetName, id) {
