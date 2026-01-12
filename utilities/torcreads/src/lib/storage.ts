@@ -278,7 +278,17 @@ export const getGenreVotes = async (): Promise<GenreVote[]> => {
 };
 
 export const voteForGenre = async (genreName: string): Promise<void> => {
-  await callSheetsAPI('voteGenre', { name: genreName });
+  const user = getCurrentUser();
+  if (!user.email) throw new Error("Please set your profile email to vote");
+
+  const result = await callSheetsAPI('voteGenre', {
+    name: genreName,
+    email: user.email
+  });
+
+  if (result && result.status === 'error') {
+    throw new Error(result.message);
+  }
 
   const votes = await getGenreVotes();
   const index = votes.findIndex(v => v.name === genreName);
@@ -291,6 +301,13 @@ export const voteForGenre = async (genreName: string): Promise<void> => {
   }
 };
 
+export const getUserVotedGenres = async (): Promise<string[]> => {
+  const user = getCurrentUser();
+  if (!user.email) return [];
+  const remoteData = await callSheetsAPI('getUserHistory', { email: user.email });
+  return Array.isArray(remoteData) ? remoteData : [];
+};
+
 export const resetGenreVotes = async (): Promise<void> => {
   await callSheetsAPI('resetGenreVotes', {});
   const genres = DEFAULT_GENRES.map(name => ({ id: name, name, votes: 0 }));
@@ -298,10 +315,51 @@ export const resetGenreVotes = async (): Promise<void> => {
 };
 
 // User
-export const getCurrentUser = (): string => {
-  return localStorage.getItem(STORAGE_KEYS.CURRENT_USER) || 'Book Club Member';
+export interface UserProfile {
+  name: string;
+  email: string;
+}
+
+export const getCurrentUser = (): UserProfile => {
+  const data = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
+  if (!data) return { name: 'Book Club Member', email: '' };
+  try {
+    const profile = JSON.parse(data);
+    // Handle old string format
+    if (typeof profile === 'string') return { name: profile, email: '' };
+    return profile;
+  } catch {
+    return { name: data, email: '' };
+  }
 };
 
-export const setCurrentUser = (username: string): void => {
-  localStorage.setItem(STORAGE_KEYS.CURRENT_USER, username);
+export const setCurrentUser = (profile: UserProfile): void => {
+  localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(profile));
+};
+
+export const syncProfile = async (profile: UserProfile): Promise<void> => {
+  await callSheetsAPI('saveProfile', {
+    row: {
+      email: profile.email,
+      name: profile.name,
+      last_active: new Date().toISOString()
+    }
+  });
+};
+
+export const isAdmin = async (): Promise<boolean> => {
+  const user = getCurrentUser();
+  if (!user.email) return false;
+
+  // Master admin from env
+  const masterAdmin = import.meta.env.VITE_ADMIN_EMAIL;
+  if (masterAdmin && user.email.toLowerCase() === masterAdmin.toLowerCase()) return true;
+
+  // Check remote admin list
+  const admins = await callSheetsAPI('getAdmins');
+  if (admins && Array.isArray(admins)) {
+    return admins.some((admin: any) => admin.email.toLowerCase() === user.email.toLowerCase());
+  }
+
+  return false;
 };

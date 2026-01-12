@@ -6,36 +6,46 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Plus, ThumbsUp, Trophy, CheckCircle2, Swords, History, Theater, Heart, Rocket, Sparkles, Ghost, Skull, RefreshCcw } from "lucide-react";
-import { getVotingOptions, saveVotingOption, voteForOption, clearVotingOptions, getCurrentUser, getGenreVotes, voteForGenre, resetGenreVotes, type VotingOption, type GenreVote } from "@/lib/storage";
+import { getVotingOptions, saveVotingOption, voteForOption, clearVotingOptions, getCurrentUser, getGenreVotes, voteForGenre, resetGenreVotes, isAdmin, getUserVotedGenres, type VotingOption, type GenreVote } from "@/lib/storage";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 
 const Vote = () => {
   const [options, setOptions] = useState<VotingOption[]>([]);
   const [genreVotes, setGenreVotes] = useState<GenreVote[]>([]);
+  const [votedGenres, setVotedGenres] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
+  const [admin, setAdmin] = useState(false);
   const [formData, setFormData] = useState({
     bookTitle: "",
     author: "",
-    suggestedBy: getCurrentUser(),
+    suggestedBy: getCurrentUser().name,
     isMember: false,
   });
   const { toast } = useToast();
 
   useEffect(() => {
     loadOptions();
+    checkAdmin();
   }, []);
+
+  const checkAdmin = async () => {
+    const isAdminUser = await isAdmin();
+    setAdmin(isAdminUser);
+  };
 
   const loadOptions = async () => {
     setLoading(true);
     try {
-      const [bookData, genreData] = await Promise.all([
+      const [bookData, genreData, historyData] = await Promise.all([
         getVotingOptions(),
-        getGenreVotes()
+        getGenreVotes(),
+        getUserVotedGenres()
       ]);
       setOptions(bookData);
       setGenreVotes(genreData);
+      setVotedGenres(historyData);
     } catch (error) {
       console.error('Error loading data:', error);
       toast({
@@ -54,7 +64,7 @@ const Vote = () => {
     try {
       const newOption: VotingOption = {
         ...formData,
-        suggestedBy: getCurrentUser(),
+        suggestedBy: formData.suggestedBy, // Use the form data name
         votes: 0,
       };
 
@@ -65,7 +75,7 @@ const Vote = () => {
       setFormData({
         bookTitle: "",
         author: "",
-        suggestedBy: getCurrentUser(),
+        suggestedBy: getCurrentUser().name,
         isMember: false
       });
       toast({ title: "Book suggestion added!" });
@@ -116,8 +126,12 @@ const Vote = () => {
   const handleGenreVote = async (genreName: string) => {
     try {
       await voteForGenre(genreName);
-      const updatedGenreVotes = await getGenreVotes();
+      const [updatedGenreVotes, updatedHistory] = await Promise.all([
+        getGenreVotes(),
+        getUserVotedGenres()
+      ]);
       setGenreVotes(updatedGenreVotes);
+      setVotedGenres(updatedHistory);
       toast({ title: `Vote added for ${genreName}!` });
     } catch (error) {
       console.error('Error voting for genre:', error);
@@ -135,8 +149,12 @@ const Vote = () => {
 
     try {
       await resetGenreVotes();
-      const updatedGenreVotes = await getGenreVotes();
+      const [updatedGenreVotes, updatedHistory] = await Promise.all([
+        getGenreVotes(),
+        getUserVotedGenres()
+      ]);
       setGenreVotes(updatedGenreVotes);
+      setVotedGenres(updatedHistory);
       toast({ title: "Genre votes reset!" });
     } catch (error) {
       console.error('Error resetting genre votes:', error);
@@ -252,15 +270,17 @@ const Vote = () => {
                 </form>
               </DialogContent>
             </Dialog>
-            {options.length > 0 && (
+            {options.length > 0 && admin && (
               <Button variant="outline" onClick={handleClearVotes}>
                 Reset Books
               </Button>
             )}
-            <Button variant="outline" onClick={handleResetGenreVotes} className="gap-2">
-              <RefreshCcw className="w-4 h-4" />
-              Reset Genres
-            </Button>
+            {admin && (
+              <Button variant="outline" onClick={handleResetGenreVotes} className="gap-2">
+                <RefreshCcw className="w-4 h-4" />
+                Reset Genres
+              </Button>
+            )}
           </div>
         </div>
 
@@ -308,12 +328,22 @@ const Vote = () => {
                     <span className="text-xl font-light text-primary">{genre.votes}</span>
                   </div>
                   <Button
-                    variant="secondary"
+                    variant={votedGenres.includes(genre.name) ? "outline" : "secondary"}
                     className="w-full gap-2"
                     onClick={() => handleGenreVote(genre.name)}
+                    disabled={votedGenres.includes(genre.name)}
                   >
-                    <ThumbsUp className="w-4 h-4" />
-                    Vote
+                    {votedGenres.includes(genre.name) ? (
+                      <>
+                        <CheckCircle2 className="w-4 h-4" />
+                        Voted
+                      </>
+                    ) : (
+                      <>
+                        <ThumbsUp className="w-4 h-4" />
+                        Vote
+                      </>
+                    )}
                   </Button>
                 </CardContent>
               </Card>
