@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Trash2, Star, BookOpen, CheckCircle2 } from "lucide-react";
-import { getBooks, saveBook, deleteBook, getCurrentUser, type Book } from "@/lib/storage";
+import { getBooks, saveBook, deleteBook, getCurrentUser, isAdmin, type Book } from "@/lib/storage";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 
@@ -15,6 +15,7 @@ const Books = () => {
   const [books, setBooks] = useState<Book[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [admin, setAdmin] = useState(false);
   const [formData, setFormData] = useState({
     title: "",
     author: "",
@@ -22,14 +23,20 @@ const Books = () => {
     dateRead: "",
     rating: 0,
     notes: "",
-    addedBy: getCurrentUser(),
+    addedBy: getCurrentUser().name,
     isMember: false,
   });
   const { toast } = useToast();
 
   useEffect(() => {
     loadBooks();
+    checkAdmin();
   }, []);
+
+  const checkAdmin = async () => {
+    const isAdminUser = await isAdmin();
+    setAdmin(isAdminUser);
+  };
 
   const loadBooks = async () => {
     setLoading(true);
@@ -54,7 +61,7 @@ const Books = () => {
     try {
       const newBook: Book = {
         ...formData,
-        addedBy: getCurrentUser(),
+        addedBy: formData.addedBy,
       };
 
       await saveBook(newBook);
@@ -68,7 +75,7 @@ const Books = () => {
         dateRead: "",
         rating: 0,
         notes: "",
-        addedBy: getCurrentUser(),
+        addedBy: getCurrentUser().name,
         isMember: false
       });
       toast({ title: "Book added successfully!" });
@@ -256,13 +263,15 @@ const Books = () => {
                     <CheckCircle2 className="w-3.5 h-3.5 text-primary fill-primary/10" />
                   )}
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleDelete(book.id)}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
+                {admin && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDelete(book.id)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                )}
               </CardFooter>
             </Card>
           ))}
