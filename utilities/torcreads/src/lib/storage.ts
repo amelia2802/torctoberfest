@@ -54,37 +54,39 @@ const STORAGE_KEYS = {
 // Helper for Google Sheets API
 async function callSheetsAPI(action: string, data?: any) {
   if (!SCRIPT_URL) {
-    console.warn('⚠️ Google Script URL not set. Using local fallback.');
+    console.warn(`⚠️ [Sheets API] VITE_GOOGLE_SCRIPT_URL is not set. Action '${action}' will use local fallback.`);
     return null;
   }
 
   try {
+    // For reliability with Google Apps Script redirects and CORS, 
+    // we use GET for ALL operations, including writes.
+    // We encode the payload as a JSON string in the URL.
+    const url = new URL(SCRIPT_URL);
+    url.searchParams.set('action', action);
     if (data) {
-      // POST request
-      // We don't set Content-Type to avoid preflight (OPTIONS) request which Apps Script doesn't handle.
-      // We pass data as a blob or string.
-      const response = await fetch(SCRIPT_URL, {
-        method: 'POST',
-        redirect: 'follow',
-        body: JSON.stringify({ action, ...data })
-      });
-      return { status: 'success' };
-    } else {
-      // GET request
-      const response = await fetch(`${SCRIPT_URL}?action=${action}`, {
-        redirect: 'follow'
-      });
-
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-
-      const result = await response.json();
-      if (result && result.status === 'error') {
-        throw new Error(result.message);
-      }
-      return result;
+      url.searchParams.set('payload', JSON.stringify({ action, ...data }));
     }
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      redirect: 'follow',
+      mode: 'cors'
+    });
+
+    if (!response.ok) {
+      console.error(`❌ [Sheets API] HTTP Error: ${response.status} ${response.statusText}`);
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const result = await response.json();
+
+    if (result && result.status === 'error') {
+      console.error(`❌ [Sheets API] Script Error:`, result.message);
+      throw new Error(result.message);
+    }
+    return result;
   } catch (error) {
-    console.error(`❌ Sheets API Error (${action}):`, error);
+    console.error(`❌ [Sheets API] Error during '${action}':`, error);
     return null;
   }
 }
@@ -358,7 +360,7 @@ export const isAdmin = async (): Promise<boolean> => {
   // Check remote admin list
   const admins = await callSheetsAPI('getAdmins');
   if (admins && Array.isArray(admins)) {
-    return admins.some((admin: any) => admin.email.toLowerCase() === user.email.toLowerCase());
+    return admins.some((admin: any) => admin.email && admin.email.toLowerCase() === user.email.toLowerCase());
   }
 
   return false;
