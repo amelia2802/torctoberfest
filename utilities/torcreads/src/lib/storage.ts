@@ -254,7 +254,8 @@ const DEFAULT_GENRES = [
   "Sci-Fi",
   "Fantasy",
   "Mystery / Thriller",
-  "Horror"
+  "Horror",
+  "Crime Fiction",
 ];
 
 export const getGenreVotes = async (): Promise<GenreVote[]> => {
