@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, ThumbsUp, Trophy, CheckCircle2, Swords, History, Theater, Heart, Rocket, Sparkles, Ghost, Skull, RefreshCcw, PocketKnife } from "lucide-react";
+import { Plus, ThumbsUp, Trophy, CheckCircle2, Swords, History, Theater, Heart, Rocket, Sparkles, Ghost, Skull, RefreshCcw, PocketKnife, BookOpen, Terminal } from "lucide-react";
 import { getVotingOptions, saveVotingOption, voteForOption, clearVotingOptions, getCurrentUser, getGenreVotes, voteForGenre, resetGenreVotes, isAdmin, getUserVotedGenres, type VotingOption, type GenreVote } from "@/lib/storage";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
@@ -167,7 +167,7 @@ const Vote = () => {
 
   const getGenreIcon = (name: string) => {
     switch (name) {
-      case "Action/Adventure": return <Swords className="w-5 h-5" />;
+      case "Action/Adventure": return <Swords className="w-5 h-5 text-purple-400" />;
       case "Historical Fiction": return <History className="w-5 h-5" />;
       case "Drama / Literary Fiction": return <Theater className="w-5 h-5" />;
       case "Romance": return <Heart className="w-5 h-5 text-rose-500" />;
@@ -175,7 +175,9 @@ const Vote = () => {
       case "Fantasy": return <Sparkles className="w-5 h-5 text-purple-400" />;
       case "Mystery / Thriller": return <Ghost className="w-5 h-5 text-gray-400" />;
       case "Horror": return <Skull className="w-5 h-5 text-red-500" />;
-      case "Crime Fiction": return <PocketKnife className="w-5 h-5 text-gray-400" />;
+      case "Crime Fiction": return <PocketKnife className="w-5 h-5 text-purple-400" />;
+      case "Non Fiction / Self Help": return <BookOpen className="w-5 h-5 text-gray-400" />;
+      case "Tech": return <Terminal className="w-5 h-5 text-rose-400" />;
       default: return <Plus className="w-5 h-5" />;
     }
   };
