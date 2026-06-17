@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Navigation } from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { BookOpen, Library, Vote } from "lucide-react";
+import { BookOpen, Library, Vote, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { getBooks, getStudyGuides, getVotingOptions } from "@/lib/storage";
 
@@ -19,13 +19,15 @@ const Index = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const booksData = await getBooks();
-      const guidesData = getStudyGuides(); // Still localStorage (sync)
-      const votesData = await getVotingOptions();
-      
+
+      const [ booksData, guidesData, votesData ] = await Promise.all([
+        getBooks(), getStudyGuides(),getVotingOptions()
+      ]);
+
       setBooks(booksData);
       setGuides(guidesData);
       setVotes(votesData);
+
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -38,18 +40,6 @@ const Index = () => {
     { label: "Study Guides", value: guides.length, icon: Library, link: "/guides" },
     { label: "Active Votes", value: votes.length, icon: Vote, link: "/vote" },
   ];
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Navigation />
-        <div className="container mx-auto px-4 py-16 text-center">
-          <BookOpen className="w-16 h-16 mx-auto text-primary mb-4 animate-pulse" />
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -89,7 +79,13 @@ const Index = () => {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-4xl font-light">{value}</p>
+                  {loading ? (
+                    <div className="h-10 flex items-center">
+                      <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : (
+                    <p className="text-4xl font-light">{value}</p>
+                  )}
                 </CardContent>
               </Card>
             </Link>
