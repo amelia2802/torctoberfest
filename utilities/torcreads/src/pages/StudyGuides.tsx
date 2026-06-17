@@ -147,20 +147,6 @@ const StudyGuides = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Navigation />
-        <main className="container mx-auto px-4 py-8">
-          <div className="text-center py-12">
-            <FileText className="w-16 h-16 mx-auto text-muted mb-4 animate-pulse" />
-            <p className="text-muted-foreground">Loading study guides...</p>
-          </div>
-        </main>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
@@ -264,6 +250,12 @@ const StudyGuides = () => {
           </Dialog>
         </div>
 
+        {loading ? (
+            <div className="text-center">
+              <FileText className="w-16 h-16 mx-auto text-muted mb-4 animate-pulse" />
+              <p className="text-muted-foreground">Loading study guides...</p>
+          </div>
+          ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {guides.map((guide) => (
             <Card key={guide.id}>
@@ -303,8 +295,9 @@ const StudyGuides = () => {
             </Card>
           ))}
         </div>
+        )}
 
-        {guides.length === 0 && (
+        {!loading &&guides.length === 0 && (
           <div className="text-center py-12">
             <FileText className="w-16 h-16 mx-auto text-muted mb-4" />
             <p className="text-muted-foreground">No study guides yet. Add your first guide!</p>

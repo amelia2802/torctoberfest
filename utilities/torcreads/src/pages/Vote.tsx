@@ -182,20 +182,6 @@ const Vote = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Navigation />
-        <main className="container mx-auto px-4 py-8">
-          <div className="text-center py-12">
-            <Trophy className="w-16 h-16 mx-auto text-muted mb-4 animate-pulse" />
-            <p className="text-muted-foreground">Loading voting options...</p>
-          </div>
-        </main>
-      </div>
-    );
-  }
-
   const sortedOptions = [...options].sort((a, b) => b.votes - a.votes);
   const winner = sortedOptions[0];
 
@@ -293,7 +279,7 @@ const Vote = () => {
             <h2 className="text-2xl font-light">Next Month's Genre</h2>
           </div>
 
-          {leadingGenre && (
+          {!loading && leadingGenre && (
             <Card className="mb-8 border-primary bg-primary/5">
               <CardHeader className="pb-2">
                 <div className="flex items-center gap-2 text-primary">
@@ -318,7 +304,14 @@ const Vote = () => {
           )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {genreVotes.map((genre) => (
+
+            {loading ? (
+    <div className="col-span-full py-12 text-center text-muted-foreground">
+      <Sparkles className="w-16 h-16 mx-auto text-muted mb-4 animate-pulse" />
+      Loading genres...
+    </div>
+  ) : (
+    genreVotes.map((genre) => (
               <Card key={genre.id} className="hover:border-primary/50 transition-colors">
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between mb-4">
@@ -350,7 +343,8 @@ const Vote = () => {
                   </Button>
                 </CardContent>
               </Card>
-            ))}
+            ))
+          )}
           </div>
         </section>
 
@@ -359,7 +353,7 @@ const Vote = () => {
           <h2 className="text-2xl font-light">Book Nominations</h2>
         </div>
 
-        {winner && (
+        {!loading && winner && (
           <Card className="mb-8 border-primary">
             <CardHeader>
               <div className="flex items-center gap-2">
@@ -381,7 +375,13 @@ const Vote = () => {
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {sortedOptions.map((option) => (
+          {loading ? (
+    <div className="col-span-full py-12 text-center text-muted-foreground">
+      <Sparkles className="w-16 h-16 mx-auto text-muted mb-4 animate-pulse" />
+      Loading nominations...
+    </div>
+  ) :(
+    sortedOptions.map((option) => (
             <Card key={option.id}>
               <CardHeader>
                 <CardTitle className="font-normal">{option.bookTitle}</CardTitle>
@@ -410,10 +410,11 @@ const Vote = () => {
                 </div>
               </CardContent>
             </Card>
-          ))}
+          ))
+          )}
         </div>
 
-        {options.length === 0 && (
+        {!loading && options.length === 0 && (
           <div className="text-center py-12">
             <Trophy className="w-16 h-16 mx-auto text-muted mb-4" />
             <p className="text-muted-foreground">No suggestions yet. Be the first to suggest a book!</p>
