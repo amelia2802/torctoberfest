@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
-import { BookOpen, Library, Vote, Home, Menu } from "lucide-react";
+import { BookOpen, Library, Vote, Home, Menu, Moon, Sun } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -14,6 +15,7 @@ import { ProfileDialog } from "./ProfileDialog";
 
 export const Navigation = () => {
   const location = useLocation();
+  const {theme, setTheme} = useTheme();
 
   const links = [
     { to: "/", label: "Home", icon: Home },
@@ -29,7 +31,6 @@ export const Navigation = () => {
           <Link to="/" className="text-xl font-light text-foreground">
             torcReads<span className="text-primary">.</span>
           </Link>
-
           <div className="flex items-center gap-2">
             {/* Desktop nav */}
             <div className="hidden md:flex items-center gap-1 mr-2 pr-2 border-r border-border">
@@ -41,13 +42,16 @@ export const Navigation = () => {
                     "flex items-center gap-2 px-4 py-2 rounded-md text-sm font-light transition-colors",
                     location.pathname === to
                       ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                      : "text-muted-foreground hover:text-primary hover:bg-primary/10"
                   )}
                 >
                   <Icon className="w-4 h-4" />
                   <span>{label}</span>
                 </Link>
               ))}
+              <Button variant="ghost" size="icon" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
+                {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              </Button>
             </div>
 
             {/* Mobile nav */}
@@ -78,7 +82,7 @@ export const Navigation = () => {
                             "flex items-center gap-3 rounded-md px-3 py-3 text-sm font-light transition-colors",
                             location.pathname === to
                               ? "bg-primary text-primary-foreground"
-                              : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                              : "text-muted-foreground hover:text-primary hover:bg-primary/10"
                           )}
                         >
                           <Icon className="w-4 h-4" />
@@ -87,7 +91,9 @@ export const Navigation = () => {
                       </SheetClose>
                     ))}
                   </div>
-
+                  <Button variant="ghost" size="icon" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
+                    {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                  </Button>
                   <div className="mt-6 border-t border-border pt-4">
                     <ProfileDialog />
                   </div>
