@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, ThumbsUp, Trophy, CheckCircle2, Swords, History, Theater, Heart, Rocket, Sparkles, Ghost, Skull, RefreshCcw, PocketKnife } from "lucide-react";
+import { Plus, ThumbsUp, Trophy, CheckCircle2, Swords, History, Theater, Heart, Rocket, Sparkles, Ghost, Skull, RefreshCcw, PocketKnife, BookOpen, Terminal } from "lucide-react";
 import { getVotingOptions, saveVotingOption, voteForOption, clearVotingOptions, getCurrentUser, getGenreVotes, voteForGenre, resetGenreVotes, isAdmin, getUserVotedGenres, type VotingOption, type GenreVote } from "@/lib/storage";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
@@ -167,7 +167,7 @@ const Vote = () => {
 
   const getGenreIcon = (name: string) => {
     switch (name) {
-      case "Action/Adventure": return <Swords className="w-5 h-5" />;
+      case "Action/Adventure": return <Swords className="w-5 h-5 text-purple-400" />;
       case "Historical Fiction": return <History className="w-5 h-5" />;
       case "Drama / Literary Fiction": return <Theater className="w-5 h-5" />;
       case "Romance": return <Heart className="w-5 h-5 text-rose-500" />;
@@ -175,24 +175,12 @@ const Vote = () => {
       case "Fantasy": return <Sparkles className="w-5 h-5 text-purple-400" />;
       case "Mystery / Thriller": return <Ghost className="w-5 h-5 text-gray-400" />;
       case "Horror": return <Skull className="w-5 h-5 text-red-500" />;
-      case "Crime Fiction": return <PocketKnife className="w-5 h-5 text-gray-400" />;
+      case "Crime Fiction": return <PocketKnife className="w-5 h-5 text-purple-400" />;
+      case "Non Fiction / Self Help": return <BookOpen className="w-5 h-5 text-gray-400" />;
+      case "Tech": return <Terminal className="w-5 h-5 text-rose-400" />;
       default: return <Plus className="w-5 h-5" />;
     }
   };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Navigation />
-        <main className="container mx-auto px-4 py-8">
-          <div className="text-center py-12">
-            <Trophy className="w-16 h-16 mx-auto text-muted mb-4 animate-pulse" />
-            <p className="text-muted-foreground">Loading voting options...</p>
-          </div>
-        </main>
-      </div>
-    );
-  }
 
   const sortedOptions = [...options].sort((a, b) => b.votes - a.votes);
   const winner = sortedOptions[0];
@@ -291,7 +279,7 @@ const Vote = () => {
             <h2 className="text-2xl font-light">Next Month's Genre</h2>
           </div>
 
-          {leadingGenre && (
+          {!loading && leadingGenre && (
             <Card className="mb-8 border-primary bg-primary/5">
               <CardHeader className="pb-2">
                 <div className="flex items-center gap-2 text-primary">
@@ -316,7 +304,14 @@ const Vote = () => {
           )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {genreVotes.map((genre) => (
+
+            {loading ? (
+    <div className="col-span-full py-12 text-center text-muted-foreground">
+      <Sparkles className="w-16 h-16 mx-auto text-muted mb-4 animate-pulse" />
+      Loading genres...
+    </div>
+  ) : (
+    genreVotes.map((genre) => (
               <Card key={genre.id} className="hover:border-primary/50 transition-colors">
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between mb-4">
@@ -348,7 +343,8 @@ const Vote = () => {
                   </Button>
                 </CardContent>
               </Card>
-            ))}
+            ))
+          )}
           </div>
         </section>
 
@@ -357,7 +353,7 @@ const Vote = () => {
           <h2 className="text-2xl font-light">Book Nominations</h2>
         </div>
 
-        {winner && (
+        {!loading && winner && (
           <Card className="mb-8 border-primary">
             <CardHeader>
               <div className="flex items-center gap-2">
@@ -379,7 +375,13 @@ const Vote = () => {
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {sortedOptions.map((option) => (
+          {loading ? (
+    <div className="col-span-full py-12 text-center text-muted-foreground">
+      <Sparkles className="w-16 h-16 mx-auto text-muted mb-4 animate-pulse" />
+      Loading nominations...
+    </div>
+  ) :(
+    sortedOptions.map((option) => (
             <Card key={option.id}>
               <CardHeader>
                 <CardTitle className="font-normal">{option.bookTitle}</CardTitle>
@@ -408,10 +410,11 @@ const Vote = () => {
                 </div>
               </CardContent>
             </Card>
-          ))}
+          ))
+          )}
         </div>
 
-        {options.length === 0 && (
+        {!loading && options.length === 0 && (
           <div className="text-center py-12">
             <Trophy className="w-16 h-16 mx-auto text-muted mb-4" />
             <p className="text-muted-foreground">No suggestions yet. Be the first to suggest a book!</p>

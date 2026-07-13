@@ -256,6 +256,8 @@ const DEFAULT_GENRES = [
   "Mystery / Thriller",
   "Horror",
   "Crime Fiction",
+  "Non Fiction / Self Help",
+  "Tech",
 ];
 
 export const getGenreVotes = async (): Promise<GenreVote[]> => {
