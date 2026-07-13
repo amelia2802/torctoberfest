@@ -31,11 +31,11 @@ To use Google Sheets as your database, follow these steps:
 | :--- | :--- | :--- |
 
 ### `users` tab headers:
-| email | name | is_admin | last_active |
+| discord_name | name | is_admin | last_active |
 | :--- | :--- | :--- | :--- |
 
 ### `user_genre_history` tab headers:
-| email | genre_name | voted_at |
+| discord_name | genre_name | voted_at |
 | :--- | :--- | :--- |
 
 ## 2. Deploy Google Apps Script
@@ -74,7 +74,7 @@ function doGet(e) {
     if (action === 'getVotes') return getSheetData(ss, 'voting_options');
     if (action === 'getGenreVotes') return getSheetData(ss, 'genre_votes');
     if (action === 'getAdmins') return getAdmins(ss);
-    if (action === 'getUserHistory') return getUserHistory(ss, payload.email);
+    if (action === 'getUserHistory') return getUserHistory(ss, payload.discordName);
     
     // WRITES
     if (action === 'saveBook') return appendToSheet(ss, 'books', payload.row);
@@ -84,7 +84,7 @@ function doGet(e) {
     if (action === 'deleteBook') return deleteRow(ss, 'books', payload.id);
     if (action === 'deleteGuide') return deleteRow(ss, 'study_guides', payload.id);
     if (action === 'clearVotes') return clearAllExceptHeader(ss, 'voting_options');
-    if (action === 'voteGenre') return voteGenre(ss, payload.name, payload.email);
+    if (action === 'voteGenre') return voteGenre(ss, payload.name, payload.discordName);
     if (action === 'resetGenreVotes') return resetGenreVotes(ss);
     if (action === 'saveProfile') return saveProfile(ss, payload.row);
     
@@ -120,25 +120,25 @@ function getAdmins(ss) {
   if (!sheet) return createJsonResponse([]);
   var data = sheet.getDataRange().getValues();
   var headers = data[0];
-  var emailCol = headers.indexOf('email');
+  var discordNameCol = headers.indexOf('discord_name');
   var adminCol = headers.indexOf('is_admin');
   
   var admins = [];
   for (var i = 1; i < data.length; i++) {
     if (data[i][adminCol] === true || data[i][adminCol] === 'TRUE') {
-      admins.push({ email: data[i][emailCol] });
+      admins.push({ discord_name: data[i][discordNameCol] });
     }
   }
   return createJsonResponse(admins);
 }
 
-function getUserHistory(ss, email) {
+function getUserHistory(ss, discordName) {
   var sheet = ss.getSheetByName('user_genre_history');
   if (!sheet) return createJsonResponse([]);
   var data = sheet.getDataRange().getValues();
   var history = [];
   for (var i = 1; i < data.length; i++) {
-    if (data[i][0] == email) history.push(data[i][1]);
+    if (data[i][0] == discordName) history.push(data[i][1]);
   }
   return createJsonResponse(history);
 }
@@ -163,23 +163,33 @@ function saveProfile(ss, rowData) {
   
   var data = sheet.getDataRange().getValues();
   var headers = data[0];
-  var emailCol = headers.indexOf('email');
+  var discordNameCol = headers.indexOf('discord_name');
+  // Fallback to check if the column is named something else, but headers should be matched 
+  if (discordNameCol === -1) discordNameCol = headers.indexOf('DiscordName');
+  if (discordNameCol === -1) discordNameCol = headers.indexOf('discord_name');
+
   var nameCol = headers.indexOf('name');
+  if (nameCol === -1) nameCol = headers.indexOf('Name');
+
   var activeCol = headers.indexOf('last_active');
+  if (activeCol === -1) activeCol = headers.indexOf('LastActivity');
 
   for (var i = 1; i < data.length; i++) {
-    if (data[i][emailCol] == rowData.email) {
+    // If the discord name matches, update the existing row
+    if (discordNameCol !== -1 && data[i][discordNameCol] == rowData.discord_name) {
       if (nameCol !== -1) sheet.getRange(i + 1, nameCol + 1).setValue(rowData.name);
       if (activeCol !== -1) sheet.getRange(i + 1, activeCol + 1).setValue(new Date());
       return createJsonResponse({ status: "success" });
     }
   }
+  
   // Not found, append with default is_admin = FALSE
   var newRow = headers.map(function(h) {
-    if (h === 'email') return rowData.email;
-    if (h === 'name') return rowData.name;
-    if (h === 'is_admin') return false;
-    if (h === 'last_active') return new Date();
+    var lowerH = h.toLowerCase();
+    if (lowerH === 'discord_name' || lowerH === 'discordname') return rowData.discord_name;
+    if (lowerH === 'name') return rowData.name;
+    if (lowerH === 'is_admin' || lowerH === 'isadmin') return false;
+    if (lowerH === 'last_active' || lowerH === 'lastactivity') return new Date();
     return "";
   });
   sheet.appendRow(newRow);
@@ -205,7 +215,7 @@ function incrementVote(ss, sheetName, id) {
   return createJsonResponse({ status: "error", message: "ID not found" });
 }
 
-function voteGenre(ss, genreName, email) {
+function voteGenre(ss, genreName, discordName) {
   // 1. Update tally
   var sheet = ss.getSheetByName('genre_votes');
   if (sheet) {
@@ -222,9 +232,9 @@ function voteGenre(ss, genreName, email) {
   }
   
   // 2. Record history
-  if (email) {
+  if (discordName) {
     var historySheet = ss.getSheetByName('user_genre_history');
-    if (historySheet) historySheet.appendRow([email, genreName, new Date()]);
+    if (historySheet) historySheet.appendRow([discordName, genreName, new Date()]);
   }
   
   return createJsonResponse({ status: "success" });
