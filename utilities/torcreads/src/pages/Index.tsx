@@ -46,7 +46,7 @@ const Index = () => {
       <Navigation />
       
       {/* Hero Section */}
-      <section className="container mx-auto px-4 py-16 md:py-24">
+      <section className="container flex flex-col md:flex-row gap-8 items-center mx-auto px-4 py-16 md:py-24">
         <div className="max-w-3xl">
           <h1 className="text-5xl md:text-6xl font-light mb-6 leading-tight">
             Welcome to
@@ -63,6 +63,9 @@ const Index = () => {
               <Button size="lg" variant="outline">Vote Now</Button>
             </Link>
           </div>
+        </div>
+        <div className="flex items-center justify-center border-8 [border-style:ridge] border-gray-300 p-2 rounded-md bg-black">
+          <img src="/banner.png" alt="torcReads banner"/>
         </div>
       </section>
 
