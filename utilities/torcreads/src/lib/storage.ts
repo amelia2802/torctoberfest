@@ -284,11 +284,11 @@ export const getGenreVotes = async (): Promise<GenreVote[]> => {
 
 export const voteForGenre = async (genreName: string): Promise<void> => {
   const user = getCurrentUser();
-  if (!user.email) throw new Error("Please set your profile email to vote");
+  if (!user.discordName) throw new Error("Please set your profile or join Torc discord to vote");
 
   const result = await callSheetsAPI('voteGenre', {
     name: genreName,
-    email: user.email
+    discordName: user.discordName
   });
 
   if (result && result.status === 'error') {
@@ -308,8 +308,8 @@ export const voteForGenre = async (genreName: string): Promise<void> => {
 
 export const getUserVotedGenres = async (): Promise<string[]> => {
   const user = getCurrentUser();
-  if (!user.email) return [];
-  const remoteData = await callSheetsAPI('getUserHistory', { email: user.email });
+  if (!user.discordName) return [];
+  const remoteData = await callSheetsAPI('getUserHistory', { discordName: user.discordName });
   return Array.isArray(remoteData) ? remoteData : [];
 };
 
@@ -322,19 +322,19 @@ export const resetGenreVotes = async (): Promise<void> => {
 // User
 export interface UserProfile {
   name: string;
-  email: string;
+  discordName: string;
 }
 
 export const getCurrentUser = (): UserProfile => {
   const data = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
-  if (!data) return { name: 'Book Club Member', email: '' };
+  if (!data) return { name: 'Book Club Member', discordName: '' };
   try {
     const profile = JSON.parse(data);
     // Handle old string format
-    if (typeof profile === 'string') return { name: profile, email: '' };
+    if (typeof profile === 'string') return { name: profile, discordName: '' };
     return profile;
   } catch {
-    return { name: data, email: '' };
+    return { name: data, discordName: '' };
   }
 };
 
@@ -345,7 +345,7 @@ export const setCurrentUser = (profile: UserProfile): void => {
 export const syncProfile = async (profile: UserProfile): Promise<void> => {
   await callSheetsAPI('saveProfile', {
     row: {
-      email: profile.email,
+      discord_name: profile.discordName,
       name: profile.name,
       last_active: new Date().toISOString()
     }
@@ -354,16 +354,16 @@ export const syncProfile = async (profile: UserProfile): Promise<void> => {
 
 export const isAdmin = async (): Promise<boolean> => {
   const user = getCurrentUser();
-  if (!user.email) return false;
+  if (!user.discordName) return false;
 
   // Master admin from env
   const masterAdmin = import.meta.env.VITE_ADMIN_EMAIL;
-  if (masterAdmin && user.email.toLowerCase() === masterAdmin.toLowerCase()) return true;
+  if (masterAdmin && user.discordName.toLowerCase() === masterAdmin.toLowerCase()) return true;
 
   // Check remote admin list
   const admins = await callSheetsAPI('getAdmins');
   if (admins && Array.isArray(admins)) {
-    return admins.some((admin: any) => admin.email && admin.email.toLowerCase() === user.email.toLowerCase());
+    return admins.some((admin: any) => admin.discord_name && admin.discord_name.toLowerCase() === user.discordName.toLowerCase());
   }
 
   return false;

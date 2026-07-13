@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,8 +16,8 @@ export const ProfileDialog = ({ onProfileUpdate }: ProfileDialogProps) => {
     const [open, setOpen] = useState(false);
     const user = getCurrentUser();
     const [formData, setFormData] = useState({
-        name: user.name === 'Book Club Member' ? '' : user.name,
-        email: user.email,
+        name: user.name === 'Torc Book Club Member' ? '' : user.name,
+        discordName: user.discordName,
     });
     const { toast } = useToast();
 
@@ -52,7 +53,7 @@ export const ProfileDialog = ({ onProfileUpdate }: ProfileDialogProps) => {
                 <DialogHeader>
                     <DialogTitle>User Profile</DialogTitle>
                     <DialogDescription>
-                        Enter your name and email. Your email is used to recognize if you are an administrator.
+                        Enter your name and discord name to set your profile and experience the full website.
                     </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleSubmit}>
@@ -61,25 +62,30 @@ export const ProfileDialog = ({ onProfileUpdate }: ProfileDialogProps) => {
                             <Label htmlFor="name">Display Name</Label>
                             <Input
                                 id="name"
-                                placeholder="e.g. Alex"
+                                placeholder="e.g. Jane"
                                 value={formData.name}
                                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                                 required
                             />
                         </div>
                         <div className="grid gap-2">
-                            <Label htmlFor="email">Email Address</Label>
+                            <Label htmlFor="discordName">Discord Username</Label>
                             <Input
-                                id="email"
-                                type="email"
-                                placeholder="alex@example.com"
-                                value={formData.email}
-                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                id="discordName"
+                                type="discordName"
+                                placeholder="jane1234"
+                                value={formData.discordName}
+                                onChange={(e) => setFormData({ ...formData, discordName: e.target.value })}
                                 required
                             />
                         </div>
                     </div>
-                    <DialogFooter>
+                    <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
+                        <p className="font-sm">Not a member? 
+                            <Link to="https://www.torc.dev/discord" className="text-primary" target="_blank">
+                                 Join Discord.
+                            </Link>
+                        </p>
                         <Button type="submit">Save Changes</Button>
                     </DialogFooter>
                 </form>

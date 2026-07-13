@@ -133,14 +133,14 @@ const Index = () => {
       <section className="container mx-auto px-4 py-16">
         <Card className="bg-primary text-primary-foreground border-primary">
           <CardHeader className="text-center">
-            <CardTitle className="text-3xl font-light mb-4">Ready to Join?</CardTitle>
+            <CardTitle className="text-3xl font-light mb-4">Ready to Join the Discussion?</CardTitle>
             <CardDescription className="text-primary-foreground/80 text-lg">
-              Start tracking your reading journey and connect with fellow torc book lovers.
+              Start tracking your reading journey and connect with fellow torc book lovers and join the discussion.
             </CardDescription>
             <div className="flex gap-4 justify-center mt-6">
-              <Link to="/books">
+              <Link to="https://www.torc.dev/discord" target="_blank">
                 <Button size="lg" variant="secondary">
-                  Add Your First Book
+                  Join Discord
                 </Button>
               </Link>
             </div>
