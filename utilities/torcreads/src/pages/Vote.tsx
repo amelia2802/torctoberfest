@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Navigation } from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, ThumbsUp, Trophy, CheckCircle2, Swords, History, Theater, Heart, Rocket, Sparkles, Ghost, Skull, RefreshCcw, PocketKnife, BookOpen, Terminal } from "lucide-react";
+import { Plus, ThumbsUp, Trophy, CheckCircle2, Swords, History, Theater, Heart, Rocket, Sparkles, Ghost, Skull, RefreshCcw, PocketKnife, BookOpen, Terminal, Loader2 } from "lucide-react";
 import { getVotingOptions, saveVotingOption, voteForOption, clearVotingOptions, getCurrentUser, getGenreVotes, voteForGenre, resetGenreVotes, isAdmin, getUserVotedGenres, type VotingOption, type GenreVote } from "@/lib/storage";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
@@ -17,6 +17,7 @@ const Vote = () => {
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [admin, setAdmin] = useState(false);
+  const [busyAction, setBusyAction] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     bookTitle: "",
     author: "",
@@ -25,17 +26,12 @@ const Vote = () => {
   });
   const { toast } = useToast();
 
-  useEffect(() => {
-    loadOptions();
-    checkAdmin();
-  }, []);
-
-  const checkAdmin = async () => {
+  const checkAdmin = useCallback(async () => {
     const isAdminUser = await isAdmin();
     setAdmin(isAdminUser);
-  };
+  }, []);
 
-  const loadOptions = async () => {
+  const loadOptions = useCallback(async () => {
     setLoading(true);
     try {
       const [bookData, genreData, historyData] = await Promise.all([
@@ -56,15 +52,21 @@ const Vote = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    loadOptions();
+    checkAdmin();
+  }, [loadOptions, checkAdmin]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setBusyAction('suggest-book');
 
     try {
       const newOption: VotingOption = {
         ...formData,
-        suggestedBy: formData.suggestedBy, // Use the form data name
+        suggestedBy: formData.suggestedBy,
         votes: 0,
       };
 
@@ -86,10 +88,13 @@ const Vote = () => {
         description: "Please try again",
         variant: "destructive"
       });
+    } finally {
+      setBusyAction(null);
     }
   };
 
   const handleVote = async (id: string) => {
+    setBusyAction(`book-vote-${id}`);
     try {
       await voteForOption(id);
       await loadOptions();
@@ -101,6 +106,8 @@ const Vote = () => {
         description: "Please try again",
         variant: "destructive"
       });
+    } finally {
+      setBusyAction(null);
     }
   };
 
@@ -109,6 +116,7 @@ const Vote = () => {
       return;
     }
 
+    setBusyAction('reset-books');
     try {
       await clearVotingOptions();
       await loadOptions();
@@ -120,10 +128,19 @@ const Vote = () => {
         description: "Please try again",
         variant: "destructive"
       });
+    } finally {
+      setBusyAction(null);
     }
   };
 
   const handleGenreVote = async (genreName: string) => {
+    if (votedGenres.includes(genreName) || busyAction === `genre-vote-${genreName}`) {
+      return;
+    }
+
+    setBusyAction(`genre-vote-${genreName}`);
+    setVotedGenres((prev) => [...new Set([...prev, genreName])]);
+
     try {
       await voteForGenre(genreName);
       const [updatedGenreVotes, updatedHistory] = await Promise.all([
@@ -135,10 +152,13 @@ const Vote = () => {
       toast({ title: `Vote added for ${genreName}!` });
     } catch (error) {
       console.error('Error voting for genre:', error);
+      setVotedGenres((prev) => prev.filter((name) => name !== genreName));
       toast({
         title: "Error recording vote",
         variant: "destructive"
       });
+    } finally {
+      setBusyAction(null);
     }
   };
 
@@ -147,6 +167,7 @@ const Vote = () => {
       return;
     }
 
+    setBusyAction('reset-genres');
     try {
       await resetGenreVotes();
       const [updatedGenreVotes, updatedHistory] = await Promise.all([
@@ -162,6 +183,8 @@ const Vote = () => {
         title: "Error resetting genre votes",
         variant: "destructive"
       });
+    } finally {
+      setBusyAction(null);
     }
   };
 
@@ -200,9 +223,9 @@ const Vote = () => {
           <div className="flex gap-2">
             <Dialog open={open} onOpenChange={setOpen}>
               <DialogTrigger asChild>
-                <Button className="gap-2">
-                  <Plus className="w-4 h-4" />
-                  Suggest Book
+                <Button className="gap-2" disabled={busyAction === 'suggest-book'}>
+                  {busyAction === 'suggest-book' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                  {busyAction === 'suggest-book' ? 'Saving...' : 'Suggest Book'}
                 </Button>
               </DialogTrigger>
               <DialogContent>
@@ -254,20 +277,24 @@ const Vote = () => {
                     </div>
                   </div>
                   <DialogFooter>
-                    <Button type="submit">Submit Suggestion</Button>
+                    <Button type="submit" disabled={busyAction === 'suggest-book'}>
+                      {busyAction === 'suggest-book' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                      {busyAction === 'suggest-book' ? 'Saving...' : 'Submit Suggestion'}
+                    </Button>
                   </DialogFooter>
                 </form>
               </DialogContent>
             </Dialog>
             {options.length > 0 && admin && (
-              <Button variant="outline" onClick={handleClearVotes}>
-                Reset Books
+              <Button variant="outline" onClick={handleClearVotes} disabled={busyAction === 'reset-books'}>
+                {busyAction === 'reset-books' ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />}
+                {busyAction === 'reset-books' ? 'Resetting...' : 'Reset Books'}
               </Button>
             )}
             {admin && (
-              <Button variant="outline" onClick={handleResetGenreVotes} className="gap-2">
-                <RefreshCcw className="w-4 h-4" />
-                Reset Genres
+              <Button variant="outline" onClick={handleResetGenreVotes} className="gap-2" disabled={busyAction === 'reset-genres'}>
+                {busyAction === 'reset-genres' ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />}
+                {busyAction === 'reset-genres' ? 'Resetting...' : 'Reset Genres'}
               </Button>
             )}
           </div>
@@ -327,9 +354,14 @@ const Vote = () => {
                     variant={votedGenres.includes(genre.name) ? "outline" : "secondary"}
                     className="w-full gap-2"
                     onClick={() => handleGenreVote(genre.name)}
-                    disabled={votedGenres.includes(genre.name)}
+                    disabled={votedGenres.includes(genre.name) || busyAction === `genre-vote-${genre.name}`}
                   >
-                    {votedGenres.includes(genre.name) ? (
+                    {busyAction === `genre-vote-${genre.name}` ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : votedGenres.includes(genre.name) ? (
                       <>
                         <CheckCircle2 className="w-4 h-4" />
                         Voted
@@ -395,9 +427,17 @@ const Vote = () => {
                       {option.votes === 1 ? 'vote' : 'votes'}
                     </p>
                   </div>
-                  <Button onClick={() => handleVote(option.id!)} className="gap-2">
-                    <ThumbsUp className="w-4 h-4" />
-                    Vote
+                  <Button
+                    onClick={() => handleVote(option.id!)}
+                    className="gap-2"
+                    disabled={busyAction === `book-vote-${option.id}`}
+                  >
+                    {busyAction === `book-vote-${option.id}` ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <ThumbsUp className="w-4 h-4" />
+                    )}
+                    {busyAction === `book-vote-${option.id}` ? 'Voting...' : 'Vote'}
                   </Button>
                 </div>
                 <div className="flex items-center gap-1.5 mt-4">

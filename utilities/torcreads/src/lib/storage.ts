@@ -48,6 +48,7 @@ const STORAGE_KEYS = {
   GUIDES: 'bookclub_guides',
   VOTES: 'bookclub_votes',
   GENRE_VOTES: 'bookclub_genre_votes',
+  USER_GENRE_HISTORY: 'bookclub_user_genre_history',
   CURRENT_USER: 'bookclub_user',
 };
 
@@ -64,6 +65,7 @@ async function callSheetsAPI(action: string, data?: any) {
     // We encode the payload as a JSON string in the URL.
     const url = new URL(SCRIPT_URL);
     url.searchParams.set('action', action);
+    url.searchParams.set('t', Date.now().toString());
     if (data) {
       url.searchParams.set('payload', JSON.stringify({ action, ...data }));
     }
@@ -286,6 +288,11 @@ export const voteForGenre = async (genreName: string): Promise<void> => {
   const user = getCurrentUser();
   if (!user.discordName) throw new Error("Please set your profile or join Torc discord to vote");
 
+  const votedGenres = await getUserVotedGenres();
+  if (votedGenres.includes(genreName)) {
+    return;
+  }
+
   const result = await callSheetsAPI('voteGenre', {
     name: genreName,
     discordName: user.discordName
@@ -294,6 +301,9 @@ export const voteForGenre = async (genreName: string): Promise<void> => {
   if (result && result.status === 'error') {
     throw new Error(result.message);
   }
+
+  const updatedHistory = Array.from(new Set([...votedGenres, genreName]));
+  setLocal(STORAGE_KEYS.USER_GENRE_HISTORY, updatedHistory);
 
   const votes = await getGenreVotes();
   const index = votes.findIndex(v => v.name === genreName);
@@ -309,14 +319,23 @@ export const voteForGenre = async (genreName: string): Promise<void> => {
 export const getUserVotedGenres = async (): Promise<string[]> => {
   const user = getCurrentUser();
   if (!user.discordName) return [];
+
   const remoteData = await callSheetsAPI('getUserHistory', { discordName: user.discordName });
-  return Array.isArray(remoteData) ? remoteData : [];
+  if (Array.isArray(remoteData)) {
+    const history = Array.from(new Set(remoteData.filter(Boolean)));
+    setLocal(STORAGE_KEYS.USER_GENRE_HISTORY, history);
+    return history;
+  }
+
+  const localHistory = getLocal(STORAGE_KEYS.USER_GENRE_HISTORY);
+  return Array.isArray(localHistory) ? Array.from(new Set(localHistory.filter(Boolean))) : [];
 };
 
 export const resetGenreVotes = async (): Promise<void> => {
   await callSheetsAPI('resetGenreVotes', {});
   const genres = DEFAULT_GENRES.map(name => ({ id: name, name, votes: 0 }));
   setLocal(STORAGE_KEYS.GENRE_VOTES, genres);
+  setLocal(STORAGE_KEYS.USER_GENRE_HISTORY, []);
 };
 
 // User

@@ -12,6 +12,9 @@ To use Google Sheets as your database, follow these steps:
    - `books`
    - `study_guides`
    - `voting_options`
+   - `genre_votes`
+   - `users`
+   - `user_genre_history`
 3. Add headers in the FIRST row (Row 1) of each tab:
 
 ### `books` tab headers:
@@ -216,27 +219,38 @@ function incrementVote(ss, sheetName, id) {
 }
 
 function voteGenre(ss, genreName, discordName) {
+  if (!discordName) {
+    return createJsonResponse({ status: "error", message: "discordName is required" });
+  }
+
+  var historySheet = ss.getSheetByName('user_genre_history');
+  if (!historySheet) return createJsonResponse({ status: "error", message: "Sheet 'user_genre_history' not found. Please create it." });
+
+  var historyData = historySheet.getDataRange().getValues();
+  for (var i = 1; i < historyData.length; i++) {
+    if (historyData[i][0] == discordName && historyData[i][1] == genreName) {
+      return createJsonResponse({ status: "success", alreadyVoted: true });
+    }
+  }
+
   // 1. Update tally
   var sheet = ss.getSheetByName('genre_votes');
-  if (sheet) {
-    var data = sheet.getDataRange().getValues();
-    var found = false;
-    for (var i = 1; i < data.length; i++) {
-      if (data[i][1] == genreName) {
-        sheet.getRange(i + 1, 3).setValue((parseInt(data[i][2]) || 0) + 1);
-        found = true;
-        break;
-      }
+  if (!sheet) return createJsonResponse({ status: "error", message: "Sheet 'genre_votes' not found. Please create it." });
+
+  var data = sheet.getDataRange().getValues();
+  var found = false;
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][1] == genreName) {
+      sheet.getRange(i + 1, 3).setValue((parseInt(data[i][2]) || 0) + 1);
+      found = true;
+      break;
     }
-    if (!found) sheet.appendRow([genreName, genreName, 1]);
   }
-  
-  // 2. Record history
-  if (discordName) {
-    var historySheet = ss.getSheetByName('user_genre_history');
-    if (historySheet) historySheet.appendRow([discordName, genreName, new Date()]);
-  }
-  
+  if (!found) sheet.appendRow([genreName, genreName, 1]);
+
+  // 2. Record history once per user per genre
+  historySheet.appendRow([discordName, genreName, new Date()]);
+
   return createJsonResponse({ status: "success" });
 }
 
